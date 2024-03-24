@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUTOTILER</title>
+    
+    
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+
+
+    <style>
+
+body {
+    background-color: #f0eae3;
+    font-family: 'Arial', sans-serif;
+    text-align: center;
+    margin: 0; 
+    padding: 0; 
+}
+
+
+.title-top {
+    z-index: -1;
+    font-size: 17vw;
+    font-weight: bold; 
+    color: white; 
+    overflow: hidden;
+}
+
+.content{
+    position: sticky;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding-bottom: 10%;
+    margin-top: -20%;
+    transition: margin-top 0.3s;
+    background-color: #ffffff;
+}
+
+.white{
+    z-index: -1;
+    position: fixed;
+    background-color: #fff;
+    margin-top: 50%;
+    width: 100%;
+    height: 100%;
+}
+
+#uploadButton, #downloadButton {
+    padding: 10px 20px;
+    font-size: 2em;
+    background-color: #a7cbd9;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    color: white;
+}
+
+
+
+
+#previewContainer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(0, 0, 0, 0),
+        rgba(0, 0, 0, 0) 10px,
+        rgba(128, 128, 128, 0.5) 10px,
+        rgba(128, 128, 128, 0.5) 20px
+    );
+    pointer-events: none;
+    z-index: 1;
+}
+
+#previewContainer .preview-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: rgba(128, 128, 128, 0.5);
+    font-size: 5em;
+    z-index: 2;
+}
+
+#previewContainer {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    margin: auto;
+    margin-top: 3%;
+    margin-bottom: 1%;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    overflow: hidden;
+}
+
+#previewContainer img {
+    width: 100%;
+    height: auto;
+    z-index: 0;
+}
+
+
+
+
+
+.drop-zone {
+    position: relative;
+    border: 2px dashed #a7cbd9;
+    padding: 20px;
+    margin: 5%;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.drop-zone.over::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width:88%;
+    height: 88%;
+    border: 2px dotted #a7cbd9;
+    border-radius: 10px;
+    animation: fadeAndPulse 2s infinite alternate;
+    transform: translate(-50%, -50%);
+}
+
+.drop-zone.over::after {
+    content: '';
+    opacity: 0;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 80%;
+    height: 80%;
+    border: 2px dotted #a7cbd9;
+    border-radius: 10px;
+    animation: pulse 2s infinite alternate;
+    transform: translate(-50%, -50%);
+    animation: fadeAndPulse 2s infinite alternate;
+    transform: translate(-50%, -50%);
+    animation-delay: 0.5s;
+}
+
+@keyframes fadeAndPulse {
+    0%, 100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1);
+        border-color: #a7cbd9;
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1);
+        border-color: #b3ffb3;
+    }
+}
+
+.hidden {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+
+
+
+    </style>
+
+
+</head>
+
+<body>
+    <div class="title-top">AUTOTILER</div>
+    <div class="content">
+
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="uploadButton" multiple />
+            </div>
+            <div id="previewContainer">
+                <div class="preview-text">Preview</div>
+            </div>
+            <button id="downloadButton">Télécharger la Tuile</button>
+        </div>
+<div class="white"></div>
+</body>
+
+
+
+
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sélection des éléments de la page
+    const uploadButton = document.getElementById('uploadButton');
+    const dropZone = document.getElementById('dropZone');
+    const previewContainer = document.getElementById('previewContainer');
+    const downloadButton = document.getElementById('downloadButton');
+    const content = document.querySelector('.content');
+    let images = [];
+
+    // Animation initiale de la marge supérieure
+    setTimeout(function() {
+        content.style.marginTop = '-8%';
+    }, 100);
+
+    // Gestionnaire d'événement pour drag & drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        dropZone.classList.add('over');
+        uploadButton.classList.add('hidden'); 
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('over');
+        uploadButton.classList.remove('hidden'); 
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        dropZone.classList.remove('over');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFiles(files);
+        }
+        uploadButton.classList.remove('hidden');
+    });
+
+    uploadButton.addEventListener('change', function(e) {
+        const files = e.target.files;
+        if (files.length > 0) {
+            handleFiles(files);
+        }
+    });
+
+    // Fonction pour gérer les fichiers téléchargés
+    function handleFiles(files) {
+        for (const file of files) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                createTile(e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // Fonction pour créer une tuile à partir d'une image
+    function createTile(imageSrc) {
+    const img = new Image();
+    img.onload = function() {
+        if (img.width !== img.height) {
+            alert('L\'image doit être carrée.');
+            return; // Manquait une parenthèse fermante après cette ligne
+        }
+
+        const size = img.width; // Taille de l'image originale
+
+        // Création du canvas pour l'image finale
+        const fullCanvas = document.createElement('canvas');
+        fullCanvas.width = size;
+        fullCanvas.height = size;
+        const ctx = fullCanvas.getContext('2d');
+
+        // Couper chaque quart de l'image et le placer dans un coin opposé
+        const halfSize = size / 2;
+        ctx.drawImage(img, 0, 0, halfSize, halfSize, halfSize, halfSize, halfSize, halfSize);
+        ctx.drawImage(img, halfSize, 0, halfSize, halfSize, 0, halfSize, halfSize, halfSize);
+        ctx.drawImage(img, 0, halfSize, halfSize, halfSize, halfSize, 0, halfSize, halfSize);
+        ctx.drawImage(img, halfSize, halfSize, halfSize, halfSize, 0, 0, halfSize, halfSize);
+
+        // Ajouter à la liste d'images et à la prévisualisation
+        images.push(fullCanvas);
+        updatePreview();
+    };
+    img.src = imageSrc;
+}
+
+
+
+// Fonction pour mettre à jour l'aperçu
+    function updatePreview() {
+    // Créer un canvas temporaire pour combiner toutes les tuiles
+    const tempCanvas = document.createElement('canvas');
+    const numTiles = images.length;
+    const size = images[0].width; // Taille d'une tuile
+    const tilesPerRow = Math.ceil(Math.sqrt(numTiles));
+    tempCanvas.width = size * tilesPerRow;
+    tempCanvas.height = size * Math.ceil(numTiles / tilesPerRow);
+    const ctx = tempCanvas.getContext('2d');
+
+    images.forEach((canvas, index) => {
+        const row = Math.floor(index / tilesPerRow);
+        const col = index % tilesPerRow;
+        ctx.drawImage(canvas, col * size, row * size, size, size);
+    });
+
+    // Créer une image pour l'aperçu et l'ajouter à previewContainer
+    const combinedImage = new Image();
+    combinedImage.src = tempCanvas.toDataURL();
+    previewContainer.innerHTML = '';
+    previewContainer.appendChild(combinedImage);
+}
+
+// Gestionnaire d'événement pour télécharger les tuiles
+    downloadButton.addEventListener('click', function() {
+        if (images.length === 1) {
+            // Télécharger une seule image
+            const link = document.createElement('a');
+            link.href = images[0].toDataURL();
+            link.download = "tuile.png";
+            link.click();
+        } else if (images.length > 1) {
+            // Télécharger toutes les images dans un fichier ZIP
+            const zip = new JSZip();
+            images.forEach((canvas, index) => {
+                zip.file(`tuile_${index + 1}.png`, canvas.toDataURL().split(',')[1], {base64: true});
+            });
+            zip.generateAsync({type: "blob"}).then(function(content) {
+                saveAs(content, "tuiles.zip");
+            });
+        }
+    });
+    
+// Gestionnaire d'événement pour le défilement de la page
+window.addEventListener('scroll', function() {
+    let scrollPercentage = window.scrollY / window.innerHeight;
+    let newMarginTop = -8 - (scrollPercentage * 12); // Calcul de la nouvelle marge
+    newMarginTop = Math.max(-20, Math.min(-3, newMarginTop)); // Limite  -3% et -20%
+    content.style.marginTop = newMarginTop + '%';
+});
+
+});
+
+    </script>
+</body>
+</html>sa
